@@ -3,7 +3,7 @@ OUTPUT_ARCH(i386)
 ENTRY(_start)
 SECTIONS
 {
-	. = 0x78001000 ;		/* bootstub entry in DRAM */
+	. = 0x78F00000 ;		/* bootstub entry in DRAM */
 	.text.head : {
 		_head = . ;
 		*(.text.head)

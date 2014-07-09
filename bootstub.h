@@ -1,4 +1,4 @@
-/* define bootstub constrains here, like memory map etc. 
+/* define bootstub constrains here, like memory map etc.
  */
 
 #ifndef _BOOT_STUB_HEAD
@@ -19,21 +19,24 @@
 #define MID_CPU_CHIP_ANNIEDALE	6
 #define MID_CPU_CHIP_OTHER		0xFF
 
-#ifdef BUILD_RAMDUMP
-#define BASE_ADDRESS		0x78000000
-#else
 #define BASE_ADDRESS		0x01100000
-#endif
 
 #define CMDLINE_OFFSET		BASE_ADDRESS
 #define BZIMAGE_SIZE_OFFSET	(CMDLINE_OFFSET + CMDLINE_SIZE)
 #define INITRD_SIZE_OFFSET	(BZIMAGE_SIZE_OFFSET + 4)
 #define SPI_UART_SUPPRESSION	(INITRD_SIZE_OFFSET + 4)
+
+// AOSP "base + kernel_offset - block_size"
+#ifdef BUILD_RAMDUMP
+#define AOSP_HEADER_ADDRESS     0x78007800
+#else
+#define AOSP_HEADER_ADDRESS     0x10007800
+#endif
+
 #define SPI_TYPE		(SPI_UART_SUPPRESSION + 4) /*0:SPI0  1:SPI1*/
 #define SPI_0		0
 #define SPI_1		1
 #define SPI_2		2
-
 
 #define FLAGS_RESERVED_0	(SPI_TYPE + 4)
 #define FLAGS_RESERVED_1	(FLAGS_RESERVED_0 + 4)
@@ -42,7 +45,13 @@
 #define XEN_SIZE_OFFSET		(SEC_PLAT_SVCS_SIZE_OFFSET + 4)
 
 #define BOOTSTUB_OFFSET		(BASE_ADDRESS + 0x1000)
-#define STACK_OFFSET		BOOTSTUB_OFFSET
+
+// AOSP "base + second_offset"
+#ifdef BUILD_RAMDUMP
+#define STACK_OFFSET		0x78F00000
+#else
+#define STACK_OFFSET		0x10F00000
+#endif
 #define BZIMAGE_OFFSET		(BASE_ADDRESS + 0x3000)
 
 #define SETUP_HEADER_OFFSET (BZIMAGE_OFFSET + 0x1F1)

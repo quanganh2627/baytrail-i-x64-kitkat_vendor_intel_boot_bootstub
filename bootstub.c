@@ -1,5 +1,5 @@
 /*
- * bootstub 32 bit entry setting routings 
+ * bootstub 32 bit entry setting routings
  *
  * Copyright (C) 2008-2010 Intel Corporation.
  * Author: Alek Du <alek.du@intel.com>
@@ -14,7 +14,7 @@
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 
+ * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
@@ -26,6 +26,7 @@
 #include "ssp-uart.h"
 #include "mb.h"
 #include "sfi.h"
+#include <bootimg.h>
 
 #include <stdint.h>
 #include <stddef.h>
@@ -83,14 +84,14 @@ static void *memset(void *s, unsigned char c, size_t count)
         char *xs = s;
 	size_t _count = count / 4;
 	unsigned long  _c = c << 24 | c << 16 | c << 8 | c;
- 
+
 	while (_count--) {
 		*(long *)xs = _c;
 		xs += 4;
 	}
 	count %= 4;
         while (count--)
-                *xs++ = c; 
+                *xs++ = c;
         return s;
 }
 
@@ -129,6 +130,11 @@ int strncmp(const char *cs, const char *ct, size_t count)
 	return 0;
 }
 
+static inline int is_image_aosp(unsigned char *magic)
+{
+	return !strncmp((char *)magic, (char *)BOOT_MAGIC, sizeof(BOOT_MAGIC)-1);
+}
+
 static void setup_boot_params(struct boot_params *bp, struct setup_header *sh)
 {
 	bp->screen_info.orig_video_mode = 0;
@@ -143,25 +149,45 @@ static void setup_boot_params(struct boot_params *bp, struct setup_header *sh)
 static u32 bzImage_setup(struct boot_params *bp, struct setup_header *sh)
 {
 	void *cmdline = (void *)BOOT_CMDLINE_OFFSET;
-	size_t cmdline_len;
-	u8 *initramfs, *ptr = (u8*)BZIMAGE_OFFSET;
+	struct boot_img_hdr *aosp = (struct boot_img_hdr *)AOSP_HEADER_ADDRESS;
+	size_t cmdline_len, extra_cmdline_len;
+	u8 *initramfs, *ptr;
 
+	if (is_image_aosp(aosp->magic)) {
+		ptr = (u8*)aosp->kernel_addr;
+		cmdline_len = strnlen((const char *)aosp->cmdline, sizeof(aosp->cmdline));
+		extra_cmdline_len = strnlen((const char *)aosp->extra_cmdline, sizeof(aosp->extra_cmdline));
 
-	cmdline_len = strnlen((const char *)CMDLINE_OFFSET, CMDLINE_SIZE);
+		/*
+		* Copy the command + extra command line to be after bootparams
+		* so that it won't be overwritten by the kernel executable.
+		*/
+		memset(cmdline, 0, sizeof(aosp->cmdline) + sizeof(aosp->extra_cmdline));
+		memcpy(cmdline, (const void *)aosp->cmdline, cmdline_len);
+		memcpy(cmdline + cmdline_len, (const void *)aosp->extra_cmdline, extra_cmdline_len);
 
-	/*
-	 * Copy the command line to be after bootparams so that it won't be
-	 * overwritten by the kernel executable.
-	 */
-	memset(cmdline, 0, CMDLINE_SIZE);
-	memcpy(cmdline, (const void *)CMDLINE_OFFSET, cmdline_len);
+		bp->hdr.ramdisk_size = aosp->ramdisk_size;
+
+		initramfs = (u8 *)aosp->ramdisk_addr;
+	} else {
+		ptr = (u8*)BZIMAGE_OFFSET;
+		cmdline_len = strnlen((const char *)CMDLINE_OFFSET, CMDLINE_SIZE);
+		/*
+		 * Copy the command line to be after bootparams so that it won't be
+		 * overwritten by the kernel executable.
+		 */
+		memset(cmdline, 0, CMDLINE_SIZE);
+		memcpy(cmdline, (const void *)CMDLINE_OFFSET, cmdline_len);
+
+		bp->hdr.ramdisk_size = *(u32 *)INITRD_SIZE_OFFSET;
+
+		initramfs = (u8 *)BZIMAGE_OFFSET + *(u32 *)BZIMAGE_SIZE_OFFSET;
+	}
 
 	bp->hdr.cmd_line_ptr = BOOT_CMDLINE_OFFSET;
 	bp->hdr.cmdline_size = cmdline_len;
-	bp->hdr.ramdisk_size = *(u32 *)INITRD_SIZE_OFFSET;
 	bp->hdr.ramdisk_image = (bp->alt_mem_k*1024 - bp->hdr.ramdisk_size) & 0xFFFFF000;
 
-	initramfs = (u8 *)BZIMAGE_OFFSET + *(u32 *)BZIMAGE_SIZE_OFFSET;
 	if (*initramfs) {
 		bs_printk("Relocating initramfs to high memory ...\n");
 		memcpy((u8*)bp->hdr.ramdisk_image, initramfs, bp->hdr.ramdisk_size);
@@ -178,17 +204,15 @@ static u32 bzImage_setup(struct boot_params *bp, struct setup_header *sh)
 	return (((unsigned int)ptr+511)/512)*512;
 }
 
-static inline void cpuid(u32 op, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
+static inline void cpuid(u32 op, u32 regs[4])
 {
-        *eax = op;
-        *ecx = 0;
-        asm volatile("pushl %%ebx      \n\t" /* save %ebx */
-                     "cpuid            \n\t"
-                     "movl %%ebx, %1   \n\t" /* save what cpuid just put in %ebx */
-                     "popl %%ebx       \n\t" /* restore the old %ebx */
-                     : "=a"(*eax), "=r"(*ebx), "=c"(*ecx), "=d"(*edx)
-                     : "a"(op)
-                     : "cc");
+	__asm__ volatile (
+		"mov %%ebx, %%edi\n"
+		"cpuid\n"
+		"xchg %%edi, %%ebx\n"
+		: "=a"(regs[0]), "=D"(regs[1]), "=c"(regs[2]), "=d"(regs[3])
+		: "a"(op)
+		);
 }
 
 enum cpuid_regs {
@@ -202,7 +226,7 @@ int mid_identify_cpu(void)
 {
 	u32 regs[4];
 
-	cpuid(1, &regs[CR_EAX], &regs[CR_EBX], &regs[CR_ECX], &regs[CR_EDX]);
+	cpuid(1, regs);
 
 	switch ( regs[CR_EAX] & CPUID_MASK ) {
 
@@ -439,15 +463,25 @@ static void sec_plat_svcs_setup(void)
 int bootstub(void)
 {
 	u32 jmp;
+	struct boot_img_hdr *aosp = (struct boot_img_hdr *)AOSP_HEADER_ADDRESS;
 	struct boot_params *bp = (struct boot_params *)BOOT_PARAMS_OFFSET;
-	struct setup_header *sh = (struct setup_header *)SETUP_HEADER_OFFSET;
+	struct setup_header *sh;
 	u32 imr_size;
 	int nr_entries;
 
-        setup_idt();
+	if (is_image_aosp(aosp->magic)) {
+		sh = (struct setup_header *)((unsigned  int)aosp->kernel_addr + \
+		                             (unsigned  int)offsetof(struct boot_params,hdr));
+		/* disable the bs_printk through SPI/UART */
+		*(int *)SPI_UART_SUPPRESSION = 1;
+		*(int *)SPI_TYPE = SPI_2;
+	} else
+		sh = (struct setup_header *)SETUP_HEADER_OFFSET;
+
+	setup_idt();
 	setup_gdt();
 	setup_spi();
-	bs_printk("Bootstub Version: 1.3 ...\n");
+	bs_printk("Bootstub Version: 1.4 ...\n");
 
 	memset(bp, 0, sizeof (struct boot_params));
 
