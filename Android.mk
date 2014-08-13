@@ -6,7 +6,6 @@ include $(CLEAR_VARS)
 CMDLINE_SIZE ?= 0x400
 BOOTSTUB_SIZE ?= 8192
 
-LOCAL_CC := gcc
 LOCAL_SRC_FILES := bootstub.c head.S e820_bios.S sfi.c ssp-uart.c imr_toc.c spi-uart.c
 ANDROID_TOOLCHAIN_FLAGS := -m32 -ffreestanding
 LOCAL_CFLAGS := $(ANDROID_TOOLCHAIN_FLAGS) -Wall -O1 -DCMDLINE_SIZE=${CMDLINE_SIZE}
@@ -64,7 +63,6 @@ include $(CLEAR_VARS)
 CMDLINE_SIZE ?= 0x400
 BOOTSTUB_SIZE ?= 8192
 
-LOCAL_CC := gcc
 LOCAL_SRC_FILES := bootstub.c head.S e820_bios.S sfi.c ssp-uart.c imr_toc.c spi-uart.c
 ANDROID_TOOLCHAIN_FLAGS := -m32 -ffreestanding
 LOCAL_CFLAGS := $(ANDROID_TOOLCHAIN_FLAGS) -Wall -O1 -DCMDLINE_SIZE=${CMDLINE_SIZE} -DBUILD_RAMDUMP
