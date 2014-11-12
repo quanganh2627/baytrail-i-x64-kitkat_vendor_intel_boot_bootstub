@@ -6,6 +6,12 @@ BOOTSTUB_SIZE ?= 8192
 BOOTSTUB_SRC_FILES := bootstub.c sfi.c ssp-uart.c imr_toc.c spi-uart.c
 BOOTSTUB_SRC_FILES_x86 := head.S e820_bios.S
 
+ifeq ($(TARGET_IS_64_BIT),true)
+  BOOTSTUB_2ND_ARCH_VAR_PREFIX := $(TARGET_2ND_ARCH_VAR_PREFIX)
+else
+  BOOTSTUB_2ND_ARCH_VAR_PREFIX :=
+endif
+
 include $(CLEAR_VARS)
 
 # bootstub.bin
@@ -16,9 +22,11 @@ LOCAL_CFLAGS := $(ANDROID_TOOLCHAIN_FLAGS) -Wall -O1 -DCMDLINE_SIZE=${CMDLINE_SI
 LOCAL_C_INCLUDES = system/core/mkbootimg
 LOCAL_MODULE := bootstub.bin
 LOCAL_MODULE_TAGS := optional
+LOCAL_MULTILIB := 32
 LOCAL_MODULE_PATH := $(PRODUCT_OUT)
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_2ND_ARCH_VAR_PREFIX := $(BOOTSTUB_2ND_ARCH_VAR_PREFIX)
 
 include $(BUILD_SYSTEM)/binary.mk
 
@@ -30,7 +38,7 @@ $(LOCAL_BUILT_MODULE) : BOOTSTUB_OBJS += $(patsubst %.S, %.o , $(LOCAL_SRC_FILES
 $(LOCAL_BUILT_MODULE) : BOOTSTUB_OBJS := $(addprefix $(intermediates)/, $(BOOTSTUB_OBJS))
 
 $(LOCAL_BUILT_MODULE): $(all_objects)
-	@$(mkdir -p $(dir $@)
+	$(hide) mkdir -p $(dir $@)
 	@echo "Generating bootstub.bin: $@"
 	$(hide) $(TARGET_LD) \
 		-m elf_i386 \
@@ -42,6 +50,9 @@ $(LOCAL_BUILT_MODULE): $(all_objects)
 # Then assemble the final bootstub file
 bootstub_bin := $(PRODUCT_OUT)/bootstub.bin
 bootstub_full := $(PRODUCT_OUT)/bootstub
+
+$(bootstub_bin): $(LOCAL_BUILT_MODULE) | $(ACP)
+	$(copy-file-to-new-target)
 
 CHECK_BOOTSTUB_SIZE : $(bootstub_bin)
 	$(hide) ACTUAL_SIZE=`$(call get-file-size,$(bootstub_bin))`; \
@@ -66,9 +77,10 @@ LOCAL_CFLAGS := $(ANDROID_TOOLCHAIN_FLAGS) -Wall -O1 -DCMDLINE_SIZE=${CMDLINE_SI
 LOCAL_C_INCLUDES = system/core/mkbootimg
 LOCAL_MODULE := 2ndbootloader.bin
 LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_PATH := $(PRODUCT_OUT)
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_2ND_ARCH_VAR_PREFIX := $(BOOTSTUB_2ND_ARCH_VAR_PREFIX)
+LOCAL_MULTILIB := 32
 
 include $(BUILD_SYSTEM)/binary.mk
 
@@ -80,7 +92,7 @@ $(LOCAL_BUILT_MODULE) : BOOTSTUB_OBJS += $(patsubst %.S, %.o , $(LOCAL_SRC_FILES
 $(LOCAL_BUILT_MODULE) : BOOTSTUB_OBJS := $(addprefix $(intermediates)/, $(BOOTSTUB_OBJS))
 
 $(LOCAL_BUILT_MODULE): $(all_objects)
-	@$(mkdir -p $(dir $@)
+	$(hide) mkdir -p $(dir $@)
 	@echo "Generating 2ndbootloader $@"
 	$(hide) $(TARGET_LD) \
 		-m elf_i386 \
@@ -92,6 +104,9 @@ $(LOCAL_BUILT_MODULE): $(all_objects)
 # Then assemble the final 2ndbootloader file
 bootstub_aosp_bin := $(PRODUCT_OUT)/2ndbootloader.bin
 bootstub_aosp_full := $(PRODUCT_OUT)/2ndbootloader
+
+$(bootstub_aosp_bin): $(LOCAL_BUILT_MODULE) | $(ACP)
+	$(copy-file-to-new-target)
 
 CHECK_BOOTSTUB_AOSP_SIZE : $(bootstub_aosp_bin)
 	$(hide) ACTUAL_SIZE=`$(call get-file-size,$(bootstub_aosp_bin))`; \
@@ -117,9 +132,10 @@ LOCAL_CFLAGS := $(ANDROID_TOOLCHAIN_FLAGS) -Wall -O1 -DCMDLINE_SIZE=${CMDLINE_SI
 LOCAL_C_INCLUDES = system/core/mkbootimg
 LOCAL_MODULE := bootstub_ramdump.bin
 LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_PATH := $(PRODUCT_OUT)
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_2ND_ARCH_VAR_PREFIX := $(BOOTSTUB_2ND_ARCH_VAR_PREFIX)
+LOCAL_MULTILIB := 32
 
 include $(BUILD_SYSTEM)/binary.mk
 
@@ -131,7 +147,7 @@ $(LOCAL_BUILT_MODULE) : BOOTSTUB_OBJS += $(patsubst %.S, %.o , $(LOCAL_SRC_FILES
 $(LOCAL_BUILT_MODULE) : BOOTSTUB_OBJS := $(addprefix $(intermediates)/, $(BOOTSTUB_OBJS))
 
 $(LOCAL_BUILT_MODULE): $(all_objects)
-	@$(mkdir -p $(dir $@)
+	$(hide) mkdir -p $(dir $@)
 	@echo "Generating bootstub_ramdump.bin: $@"
 	$(hide) $(TARGET_LD) \
 		-m elf_i386 \
@@ -143,6 +159,9 @@ $(LOCAL_BUILT_MODULE): $(all_objects)
 # Then assemble the final bootstub file
 bootstub_ramdump_bin := $(PRODUCT_OUT)/bootstub_ramdump.bin
 bootstub_ramdump_full := $(PRODUCT_OUT)/bootstub_ramdump
+
+$(bootstub_ramdump_bin): $(LOCAL_BUILT_MODULE) | $(ACP)
+	$(copy-file-to-new-target)
 
 CHECK_BOOTSTUB_RAMDUMP_SIZE : $(bootstub_ramdump_bin)
 	$(hide) ACTUAL_SIZE=`$(call get-file-size,$(bootstub_ramdump_bin))`; \
