@@ -28,9 +28,9 @@
 
 // AOSP "base + kernel_offset - block_size"
 #ifdef BUILD_RAMDUMP
-#define AOSP_HEADER_ADDRESS     0x78007800
+#define AOSP_HEADER_ADDRESS	0x79000000
 #else
-#define AOSP_HEADER_ADDRESS     0x10007800
+#define AOSP_HEADER_ADDRESS	0x10007800
 #endif
 
 #define SPI_TYPE		(SPI_UART_SUPPRESSION + 4) /*0:SPI0  1:SPI1*/

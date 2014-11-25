@@ -186,6 +186,7 @@ static u32 bzImage_setup(struct boot_params *bp, struct setup_header *sh)
 
 	bp->hdr.cmd_line_ptr = BOOT_CMDLINE_OFFSET;
 	bp->hdr.cmdline_size = cmdline_len;
+#ifndef BUILD_RAMDUMP
 	bp->hdr.ramdisk_image = (bp->alt_mem_k*1024 - bp->hdr.ramdisk_size) & 0xFFFFF000;
 
 	if (*initramfs) {
@@ -194,6 +195,9 @@ static u32 bzImage_setup(struct boot_params *bp, struct setup_header *sh)
 	} else {
 		bs_printk("Won't relocate initramfs, are you in SLE?\n");
 	}
+#else
+	bp->hdr.ramdisk_image = (u32) initramfs;
+#endif
 
 	while (1){
 		if (*(u32 *)ptr == SETUP_SIGNATURE && *(u32 *)(ptr+4) == 0)
